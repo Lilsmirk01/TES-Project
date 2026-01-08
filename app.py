@@ -76,9 +76,9 @@ def main():
 
         # Display a short rationale for the top result
         st.subheader("Explanation (brief)")
-        st.write("This expert system uses weighted rules (certainty factors). The displayed
-                 percentages are normalised scores based on how well the entered symptoms
-                 match disease profiles in the knowledge base.")
+        st.write("This expert system uses weighted rules (certainty factors). The displayed "
+                 "percentages are normalised scores based on how well the entered symptoms "
+                 "match disease profiles in the knowledge base.")
 
 
 if __name__ == "__main__":
