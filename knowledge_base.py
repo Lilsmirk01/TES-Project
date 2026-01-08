@@ -34,62 +34,58 @@ from typing import Dict
 # - shortness_of_breath, wheezing, chest_pain, fatigue, loss_taste_smell
 # - smoking_history
 
-KNOWLEDGE_BASE: Dict[str, Dict[str, float]] = {
+# Knowledge entries now include an explanation string alongside the CF value.
+# This supports explainability: each rule is an IF symptom THEN disease with CF
+# and a short explanation of why that symptom supports the disease.
+KNOWLEDGE_BASE: Dict[str, Dict[str, Dict[str, object]]] = {
     "Asthma": {
-        # Asthma often features wheeze and shortness of breath; cough may be dry.
-        "wheezing": 0.9,
-        "shortness_of_breath": 0.8,
-        "cough_dry": 0.6,
-        "fever_none": 0.2,  # lack of fever slightly supports asthma (non-infectious)
-        "chest_pain": 0.3,
-        "fatigue": 0.3,
-        "smoking_history": 0.2,
+        "wheezing": {"cf": 0.9, "explain": "Wheezing is a hallmark of airway constriction in asthma."},
+        "shortness_of_breath": {"cf": 0.8, "explain": "Airflow limitation causes breathlessness."},
+        "cough_dry": {"cf": 0.6, "explain": "Dry cough can occur with bronchospasm in asthma."},
+        "fever_none": {"cf": 0.2, "explain": "Absence of fever slightly supports non-infectious causes like asthma."},
+        "chest_pain": {"cf": 0.3, "explain": "Chest tightness or pain may accompany severe asthma."},
+        "fatigue": {"cf": 0.3, "explain": "Reduced activity tolerance can follow persistent breathlessness."},
+        "smoking_history": {"cf": 0.2, "explain": "Smoking can worsen airway hyperreactivity."},
     },
     "COPD": {
-        # COPD associated with chronic smoking, dyspnea and productive cough
-        "smoking_history": 0.9,
-        "cough_wet": 0.7,
-        "shortness_of_breath": 0.8,
-        "wheezing": 0.5,
-        "fatigue": 0.5,
-        "fever_none": 0.1,
+        "smoking_history": {"cf": 0.9, "explain": "Chronic smoking is the primary risk factor for COPD."},
+        "cough_wet": {"cf": 0.7, "explain": "Productive cough is common in chronic bronchitis (COPD)."},
+        "shortness_of_breath": {"cf": 0.8, "explain": "Progressive dyspnea is a core COPD feature."},
+        "wheezing": {"cf": 0.5, "explain": "Wheezing can be present in COPD due to airflow obstruction."},
+        "fatigue": {"cf": 0.5, "explain": "Reduced exercise tolerance is common in COPD."},
+        "fever_none": {"cf": 0.1, "explain": "Fever is less typical for chronic non-infectious COPD baseline."},
     },
     "Pneumonia": {
-        # Pneumonia commonly causes fever, productive cough, chest pain
-        "fever_high": 0.9,
-        "cough_wet": 0.8,
-        "chest_pain": 0.6,
-        "shortness_of_breath": 0.7,
-        "fatigue": 0.6,
-        "smoking_history": 0.2,
+        "fever_high": {"cf": 0.9, "explain": "High fever often accompanies infectious pneumonia."},
+        "cough_wet": {"cf": 0.8, "explain": "Productive cough with purulent sputum suggests pulmonary infection."},
+        "chest_pain": {"cf": 0.6, "explain": "Pleuritic chest pain can occur with lung consolidation."},
+        "shortness_of_breath": {"cf": 0.7, "explain": "Infection and consolidation impair gas exchange."},
+        "fatigue": {"cf": 0.6, "explain": "Systemic illness commonly causes fatigue."},
+        "smoking_history": {"cf": 0.2, "explain": "Smoking is a minor risk factor for some pneumonias."},
     },
     "COVID-19": {
-        # COVID-19 often causes fever, dry cough, fatigue, and loss of taste/smell
-        "fever_high": 0.8,
-        "fever_low": 0.4,
-        "cough_dry": 0.7,
-        "shortness_of_breath": 0.6,
-        "fatigue": 0.6,
-        "loss_taste_smell": 0.95,
-        "chest_pain": 0.3,
+        "fever_high": {"cf": 0.8, "explain": "Fever is a common sign of viral infection including COVID-19."},
+        "fever_low": {"cf": 0.4, "explain": "Low-grade fever can be seen in viral illness."},
+        "cough_dry": {"cf": 0.7, "explain": "Dry cough is frequently reported in COVID-19."},
+        "shortness_of_breath": {"cf": 0.6, "explain": "Lower respiratory involvement can cause dyspnea."},
+        "fatigue": {"cf": 0.6, "explain": "Fatigue is a typical systemic symptom of COVID-19."},
+        "loss_taste_smell": {"cf": 0.95, "explain": "Anosmia/ageusia is a strong, relatively specific feature of COVID-19."},
+        "chest_pain": {"cf": 0.3, "explain": "Chest discomfort may occur in some cases."},
     },
     "Tuberculosis": {
-        # TB may present with chronic cough (sometimes blood), low-grade fever,
-        # weight loss and fatigue. We approximate with available symptoms.
-        "fever_low": 0.6,
-        "cough_blood": 0.8,
-        "cough_wet": 0.5,
-        "fatigue": 0.7,
-        "shortness_of_breath": 0.5,
-        "smoking_history": 0.3,
+        "fever_low": {"cf": 0.6, "explain": "Low-grade fever is often seen in TB."},
+        "cough_blood": {"cf": 0.8, "explain": "Hemoptysis can be a feature of lung TB."},
+        "cough_wet": {"cf": 0.5, "explain": "Chronic productive cough may indicate TB or chronic infections."},
+        "fatigue": {"cf": 0.7, "explain": "Systemic symptoms such as fatigue are common in TB."},
+        "shortness_of_breath": {"cf": 0.5, "explain": "Advanced pulmonary TB can cause dyspnea."},
+        "smoking_history": {"cf": 0.3, "explain": "Smoking is a moderate risk factor for some TB outcomes."},
     },
     "Acute Bronchitis": {
-        # Acute bronchitis often has cough (dry or wet), sometimes mild fever
-        "cough_dry": 0.5,
-        "cough_wet": 0.6,
-        "fever_low": 0.4,
-        "fatigue": 0.4,
-        "shortness_of_breath": 0.3,
+        "cough_dry": {"cf": 0.5, "explain": "Acute bronchitis may start with a dry cough."},
+        "cough_wet": {"cf": 0.6, "explain": "Productive cough often develops in bronchitis."},
+        "fever_low": {"cf": 0.4, "explain": "Mild fever can accompany bronchitis."},
+        "fatigue": {"cf": 0.4, "explain": "Fatigue may follow acute respiratory infection."},
+        "shortness_of_breath": {"cf": 0.3, "explain": "Mild dyspnea can happen with bronchitis."},
     },
 }
 

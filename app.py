@@ -8,7 +8,7 @@ engine and displays the top diagnoses with color-coded recommendations.
 """
 
 import streamlit as st
-from inference_engine import diagnose
+from inference_engine import diagnose, diagnose_with_explanation
 
 # Configure page with custom styling
 st.set_page_config(
@@ -363,12 +363,15 @@ def main():
         diagnose_button = st.button("Analyze Symptoms", key="diagnose_btn", use_container_width=True)
 
     if diagnose_button:
-        # Run inference
-        results = diagnose(patient_profile)
+        # Run inference with explanation support
+        results_with_expl = diagnose_with_explanation(patient_profile)
 
-        if not results:
+        if not results_with_expl:
             st.error("Unable to process input. Please check your entries.")
             return
+
+        # extract simple results for compatibility with existing display
+        results = [(d, p) for (d, p, _) in results_with_expl]
 
         # Results section
         st.markdown("<h2 class='section-title'>Diagnosis Results</h2>", unsafe_allow_html=True)
@@ -397,6 +400,8 @@ def main():
         st.markdown("<h2 class='section-title'>Clinical Recommendation</h2>", unsafe_allow_html=True)
         
         best_disease, best_score = results[0]
+        # get the explanation object for the top disease
+        best_expl = results_with_expl[0][2]
         
         if best_score >= 75:
             st.markdown(f"""
@@ -443,6 +448,23 @@ def main():
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+        # Explanation panel (structured, concise)
+        with st.expander("Explanation: why the top diagnosis was chosen", expanded=True):
+            st.markdown(f"**Primary diagnosis:** {best_disease} — **{best_expl['percent']}%** confidence")
+            st.markdown(f"**Raw score:** {best_expl['raw_score']} of max {best_expl['max_score']}")
+
+            if best_expl.get('matched'):
+                st.markdown("**Supporting evidence (matched symptoms):**")
+                for m in best_expl['matched']:
+                    desc = m.get('explain', '')
+                    st.markdown(f"- {m['symptom']} (CF={m['cf']}): {desc}")
+
+            if best_expl.get('penalties'):
+                st.markdown("**Negative evidence (absent expected symptoms causing penalties):**")
+                for p in best_expl['penalties']:
+                    desc = p.get('explain', '')
+                    st.markdown(f"- {p['symptom']} (penalty={round(p['penalty'],2)} of cf={p['cf']}): {desc}")
     
     st.markdown("</div>", unsafe_allow_html=True)
 

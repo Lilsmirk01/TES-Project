@@ -23,7 +23,7 @@ for clarity and grading. More advanced CF combination rules exist (e.g., MYCIN
 style combination), but they are out of scope for this assignment.
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 from knowledge_base import KNOWLEDGE_BASE
 
 
@@ -32,7 +32,13 @@ def _disease_max_score(disease_rules: Dict[str, float]) -> float:
 
     We use this to normalise the raw score into a percentage.
     """
-    return sum(max(0.0, v) for v in disease_rules.values())
+    total = 0.0
+    for v in disease_rules.values():
+        if isinstance(v, dict):
+            total += max(0.0, float(v.get("cf", 0.0)))
+        else:
+            total += max(0.0, float(v))
+    return total
 
 
 def diagnose(patient_profile: Dict[str, str or bool]) -> List[Tuple[str, float]]:
@@ -73,7 +79,7 @@ def diagnose(patient_profile: Dict[str, str or bool]) -> List[Tuple[str, float]]
         # explicit absence can be represented as 'fever_none' style keys for other symptoms
         pass
 
-    # For every disease compute support
+    # For every disease compute support (backwards compatible with old KB)
     for disease, rules in KNOWLEDGE_BASE.items():
         raw_score = 0.0
         max_score = _disease_max_score(rules)
@@ -83,16 +89,12 @@ def diagnose(patient_profile: Dict[str, str or bool]) -> List[Tuple[str, float]]
             results.append((disease, 0.0))
             continue
 
-        # Sum positive evidence
-        for symptom_key, cf in rules.items():
+        # Sum positive evidence and apply penalties for absent expected symptoms
+        for symptom_key, rule_val in rules.items():
+            cf = float(rule_val["cf"]) if isinstance(rule_val, dict) else float(rule_val)
             if symptom_key in present:
-                # Symptom present: increase support by CF
                 raw_score += cf
             else:
-                # Symptom absent: if the symptom was expected (cf high), apply
-                # a penalty proportional to its weight. This models negative
-                # evidence reducing confidence in the disease.
-                # Penalty fraction chosen empirically for clarity in outputs.
                 penalty_fraction = 0.5
                 raw_score -= cf * penalty_fraction
 
@@ -101,6 +103,65 @@ def diagnose(patient_profile: Dict[str, str or bool]) -> List[Tuple[str, float]]
         results.append((disease, round(percent, 1)))
 
     # Sort by descending percentage
+    results.sort(key=lambda x: x[1], reverse=True)
+    return results
+
+
+def diagnose_with_explanation(patient_profile: Dict[str, str or bool]) -> List[Tuple[str, float, Dict[str, Any]]]:
+    """Diagnose and return structured explanations for each disease.
+
+    Returns a list of tuples: (disease, percent, explanation_dict)
+    explanation_dict contains: raw_score, max_score, percent, matched, penalties
+    where matched is a list of matched symptom facts and penalties lists absent expectations.
+    """
+    results: List[Tuple[str, float, Dict[str, Any]]] = []
+
+    # Preprocess profile into present set (reuse logic)
+    present = set()
+    fever_val = patient_profile.get("fever")
+    if fever_val in ("high", "low", "none"):
+        present.add(f"fever_{fever_val}")
+    cough_val = patient_profile.get("cough")
+    if cough_val in ("dry", "wet", "blood"):
+        present.add(f"cough_{cough_val}")
+    for bool_sym in ("shortness_of_breath", "wheezing", "chest_pain", "fatigue", "loss_taste_smell"):
+        if patient_profile.get(bool_sym):
+            present.add(bool_sym)
+    if patient_profile.get("smoking_history"):
+        present.add("smoking_history")
+
+    for disease, rules in KNOWLEDGE_BASE.items():
+        raw_score = 0.0
+        max_score = _disease_max_score(rules)
+        if max_score <= 0.0:
+            expl = {"raw_score": 0.0, "max_score": 0.0, "percent": 0.0, "matched": [], "penalties": []}
+            results.append((disease, 0.0, expl))
+            continue
+
+        matched = []
+        penalties = []
+
+        for symptom_key, rule_val in rules.items():
+            if isinstance(rule_val, dict):
+                cf = float(rule_val.get("cf", 0.0))
+                reason = rule_val.get("explain", "")
+            else:
+                cf = float(rule_val)
+                reason = ""
+
+            if symptom_key in present:
+                raw_score += cf
+                matched.append({"symptom": symptom_key, "cf": cf, "explain": reason})
+            else:
+                penalty_fraction = 0.5
+                pen = cf * penalty_fraction
+                raw_score -= pen
+                penalties.append({"symptom": symptom_key, "penalty": pen, "cf": cf, "explain": reason})
+
+        percent = max(0.0, min(1.0, raw_score / max_score)) * 100.0
+        expl = {"raw_score": round(raw_score, 3), "max_score": round(max_score, 3), "percent": round(percent, 1), "matched": matched, "penalties": penalties}
+        results.append((disease, round(percent, 1), expl))
+
     results.sort(key=lambda x: x[1], reverse=True)
     return results
 
