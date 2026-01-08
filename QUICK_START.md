@@ -4,12 +4,19 @@
 
 ### 1. Install Dependencies
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate  # or: source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
 ### 2. Run the App
 ```bash
-streamlit run app.py
+# Option 1: using the venv run script
+./run.sh
+
+# Option 2: directly with the venv Python/Streamlit
+.venv/bin/streamlit run app.py
 ```
 
 **Done!** Your browser opens at `http://localhost:8501`
